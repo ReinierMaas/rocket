@@ -1,13 +1,15 @@
 [package]
 name = "rocket"
-version = "0.2.0"
+version = "1.0.0"
 authors = ["Adolfo Ochagavía <aochagavia92@gmail.com>"]
 build = "build.rs"
 
 [dependencies]
-itertools = "0.4.19"
-piston = "0.26.0"
-piston_window = "0.54.0"
-piston2d-graphics = "0.17.3"
-piston2d-opengl_graphics = "0.34.0"
+clippy = { version = "0.0.118", optional = true }
+itertools-num = "0.1.1"
+piston_window = "0.64.0"
+piston2d-opengl_graphics = "0.42.1"
 rand = "0.3.14"
+
+[features]
+default = []

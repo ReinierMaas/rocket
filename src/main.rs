@@ -1,66 +1,80 @@
+#![deny(missing_docs)]
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
+
+//! A 2D toy game written in Rust, using the Piston library.
+
 extern crate piston_window;
-extern crate graphics;
-extern crate itertools;
+extern crate itertools_num;
 extern crate opengl_graphics;
-extern crate piston;
 extern crate rand;
 
+mod controllers;
 mod drawing;
-mod game;
+mod game_state;
+mod geometry;
 mod models;
-mod traits;
+mod resources;
+mod util;
+mod view;
 
-use piston_window::{Button, Event, Events, EventLoop, Input, Motion, OpenGL, PistonWindow,
-    WindowSettings};
+use piston_window::{Button, EventLoop, Input, Motion, OpenGL, PistonWindow, WindowSettings};
 use opengl_graphics::GlGraphics;
 
-use game::Game;
+use controllers::{CollisionsController, InputController, TimeController};
+use game_state::GameState;
+use geometry::Size;
+use resources::Resources;
 
 fn main() {
     let opengl = OpenGL::V3_2;
 
-    let mut game = Game::new(drawing::Size::new(1024.0, 600.0));
+    let game_size = Size::new(1024.0, 600.0);
 
-    let mut window: PistonWindow = WindowSettings::new("Rocket!", [1024, 600])
+    let mut window: PistonWindow = WindowSettings::new(
+        "Rocket!", [game_size.width as u32, game_size.height as u32])
         .opengl(opengl).samples(8).exit_on_esc(true).build().unwrap();
 
     window.set_ups(60);
     window.set_max_fps(60);
 
     let mut gl = GlGraphics::new(opengl);
+    let mut resources = Resources::new();
+    let mut input_controller = InputController::new();
+    let mut time_controller = TimeController::new();
+    let mut state = GameState::new(game_size);
 
-    let mut events = window.events();
-
-    while let Some(e) = events.next(&mut window) {
+    // The game loop
+    while let Some(e) = window.next() {
         // Event handling
         match e {
-            Event::Input(Input::Press(Button::Keyboard(key))) => {
-                game.key_press(key);
+            Input::Press(Button::Keyboard(key)) => {
+                input_controller.key_press(key);
             }
 
-            Event::Input(Input::Release(Button::Keyboard(key))) => {
-                game.key_release(key);
+            Input::Release(Button::Keyboard(key)) => {
+                input_controller.key_release(key);
             }
 
-            Event::Input(Input::Press(Button::Controller(button))) => {
-                game.button_press(button);
+            Input::Press(Button::Controller(button)) => {
+                input_controller.button_press(button);
             }
 
-            Event::Input(Input::Release(Button::Controller(button))) => {
-                game.button_release(button);
+            Input::Release(Button::Controller(button)) => {
+                input_controller.button_release(button);
             }
 
-            // Controller Axis are Move Input types
-            Event::Input(Input::Move(Motion::ControllerAxis(axis))) => {
-                game.handle_axis(axis);
+            Input::Move(Motion::ControllerAxis(axis)) => {
+                input_controller.handle_axis(axis);
             }
 
-            Event::Render(args) => {
-                gl.draw(args.viewport(), |c, g| game.render(c, g));
+            Input::Update(args) => {
+                time_controller.update_seconds(args.dt, input_controller.actions(), &mut state);
+                CollisionsController::handle_collisions(&mut state);
             }
 
-            Event::Update(args) => {
-                game.update(args.dt);
+            Input::Render(args) => {
+                gl.draw(args.viewport(), |c, g| view::render_game(c, g, &mut resources, &state));
             }
 
             _ => {}
